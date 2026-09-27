@@ -86,9 +86,67 @@ int main() {
     assert(threw);
 
 
+    //Seventh test (copying the constructor)
+    Conversation original;
+    original.append(Message(Role::User, "Original message"));
 
+    Conversation copy(original);
+
+    assert(copy.size() == 1);
+    assert(copy.at(0).role() == Role::User);
+    assert(copy.at(0).content() == "Original message");
+
+
+
+
+    //eith test (copying the conversation)
+    original.append(Message(Role::Assistant, "New message"));
+
+    assert(original.size() == 2);
+    assert(copy.size() == 1);
+    assert(copy.at(0).content() == "Original message");
+
+
+    //Ninth test (moving the constructor)
+    Conversation move_original;
+    move_original.append(Message(Role::User, "Move me"));
+
+    Conversation moved(std::move(move_original));
+
+    assert(moved.size() == 1);
+    assert(moved.at(0).content() == "Move me");
+    assert(move_original.size() == 0);
+
+
+
+
+    //Tenth test (chunk contains sentinel)
+    SentinelScanner scanner("<|end_conversation|>");
+
+    SentinelScanner::Out result =
+        scanner.feed("Hello<|end_conversation|>");
+
+    assert(result.safe_text == "Hello");
+    assert(result.sentinel_found == true);
+
+
+    //Eleventh test (two chunks contain sentinel)
+    SentinelScanner scanner2("<|end_conversation|>");
+
+    SentinelScanner::Out part1 =
+        scanner2.feed("Goodbye<|end_");
+    SentinelScanner::Out part2 =
+        scanner2.feed("conversation|>");
+    assert(part1.sentinel_found == false);
+    assert(part2.sentinel_found == true);
+
+    assert(part1.safe_text + part2.safe_text == "Goodbye");
+
+
+    
     return 0;
 
+    
     
 
 }
