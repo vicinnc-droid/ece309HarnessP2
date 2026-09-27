@@ -142,11 +142,46 @@ int main() {
 
     assert(part1.safe_text + part2.safe_text == "Goodbye");
 
+    // Twelth test flush
+    SentinelScanner scanner3("<|end_conversation|>");
+
+    SentinelScanner::Out before_flush =
+        scanner3.feed("Short text");
+
+    SentinelScanner::Out flushed =
+        scanner3.flush();
+
+    assert(before_flush.sentinel_found == false);
+    assert(flushed.sentinel_found == false);
+    assert(before_flush.safe_text + flushed.safe_text == "Short text");
 
     
+
+    //Testing copying
+    Conversation assign_original;
+    assign_original.append(Message(Role::User, "Copy assignment"));
+
+    Conversation assigned;
+    assigned = assign_original;
+
+    assert(assigned.size() == 1);
+    assert(assigned.at(0).content() == "Copy assignment");
+
+    assign_original.append(Message(Role::Assistant, "Another message"));
+
+    assert(assign_original.size() == 2);
+    assert(assigned.size() == 1);
+    //Testing moving assignments
+        Conversation move_assign_original;
+    move_assign_original.append(Message(Role::Assistant, "Move assignment"));
+
+    Conversation move_assigned;
+    move_assigned = std::move(move_assign_original);
+
+    assert(move_assigned.size() == 1);
+    assert(move_assigned.at(0).content() == "Move assignment");
+    assert(move_assign_original.size() == 0);
     return 0;
-
-    
     
 
 }
