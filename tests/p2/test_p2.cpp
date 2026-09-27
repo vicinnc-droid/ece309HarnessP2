@@ -18,11 +18,19 @@
 
 int main() {
     // my tests.
+
+    //firsttest
         Message m;
     assert(m.role() == Role::System);
     assert(m.content() == "");
 
 
+    // second test
     
+    Message m2(Role::User, "Hello");
+
+    assert(m2.role() == Role::User);
+    assert(m2.content() == "Hello");
+
     return 0;
 }
