@@ -17,6 +17,12 @@
 #include <cassert>
 
 int main() {
-    // TODO: write your tests here.
+    // my tests.
+        Message m;
+    assert(m.role() == Role::System);
+    assert(m.content() == "");
+
+
+    
     return 0;
 }
