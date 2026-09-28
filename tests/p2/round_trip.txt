@@ -1,0 +1,14 @@
+role: system
+You are a helpful assistant.
+---
+role: user
+Hello
+---
+role: assistant
+Hi there!
+---
+role: user
+Goodbye
+---
+role: assistant
+See you later!

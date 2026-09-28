@@ -127,16 +127,28 @@ int main() {
     assert(copy.size() == 1);
     assert(copy.at(0).content() == "Original message");
 
+
+
+
     //Rule of Five (Move)
     //moving the constructor
     Conversation move_original;
     move_original.append(Message(Role::User, "Move me"));
 
+    const Message* original_data = move_original.data();
+
     Conversation moved(std::move(move_original));
 
     assert(moved.size() == 1);
     assert(moved.at(0).content() == "Move me");
+
+    // Make sure the move stole the original pointer
+    assert(moved.data() == original_data);
+
+    // Make sure the source was zeroed out
+    assert(move_original.data() == nullptr);
     assert(move_original.size() == 0);
+    assert(move_original.capacity() == 0);
 
 
 
@@ -192,6 +204,10 @@ int main() {
 
     assert(assign_original.size() == 2);
     assert(assigned.size() == 1);
+
+
+
+
     //Testing moving assignments
         Conversation move_assign_original;
     move_assign_original.append(Message(Role::Assistant, "Move assignment"));
@@ -223,7 +239,7 @@ int main() {
 
 
 
-    // Scanner (Split Sentinel)
+    //Scanner (Split Sentinel)
     //tetsing sentinel at different boundaries
     std::string sentinel = "<|end_conversation|>";
 
@@ -312,6 +328,9 @@ int main() {
     assert(growth.at(4).content() == "5");
 
 
+
+
+    //System Message Ordering
     //testing that system message remains first
     Conversation system_order;
 
@@ -327,7 +346,9 @@ int main() {
 
 
 
-    // Harness (Turn Limit)s
+
+
+    
     //Harness Turn Limit Test
 {
     auto model = std::make_unique<ScriptedModelClient>(
@@ -346,6 +367,92 @@ int main() {
 
     assert(reason.kind == StopReason::Kind::TurnLimit);
     assert(harness.conversation().size() == 6);
+}
+
+
+
+
+    // Harness (Sentinel Halt)
+{
+    auto model = std::make_unique<ScriptedModelClient>(
+        "tests/p2/sentinel_halt.script"
+    );
+
+    HarnessConfig cfg;
+    cfg.max_turns = 5;
+
+    Harness harness(std::move(model), cfg);
+
+    TestInput input;
+    TestOutput output;
+
+    StopReason reason = harness.run(input, output);
+
+    assert(reason.kind == StopReason::Kind::Sentinel);
+
+    // It should stop after one user/assistant turn
+    assert(harness.conversation().size() == 2);
+
+    assert(harness.conversation().at(0).role() == Role::User);
+    assert(harness.conversation().at(1).role() == Role::Assistant);
+
+    // The sentinel is stored in the Conversation
+    assert(harness.conversation().at(1).content() ==
+           "This is the final response.<|end_conversation|>");
+
+    // The sentinel should not be printed
+    assert(output.output_.find("<|end_conversation|>") ==
+           std::string::npos);
+}
+
+
+
+
+
+// Transcript Round-Trip
+{
+    ReplayModelClient replay("tests/p2/round_trip.txt");
+
+    // Make sure the System message was loaded correctly
+    assert(replay.system_message() == "You are a helpful assistant.");
+
+    Conversation replay_conversation;
+    replay_conversation.append(
+        Message(Role::System, replay.system_message())
+    );
+
+    // First recorded turn
+replay_conversation.append(
+    Message(Role::User, "Hello")
+);
+
+Message reply1 = replay.generate(replay_conversation);
+
+assert(reply1.role() == Role::Assistant);
+assert(reply1.content() == "Hi there!");
+
+replay_conversation.append(reply1);
+
+// Second recorded turn
+replay_conversation.append(
+    Message(Role::User, "Goodbye")
+);
+
+Message reply2 = replay.generate(replay_conversation);
+
+assert(reply2.role() == Role::Assistant);
+assert(reply2.content() == "See you later!");
+
+replay_conversation.append(reply2);
+
+    // Verify the reconstructed conversation
+    assert(replay_conversation.size() == 5);
+    assert(replay_conversation.at(0).content() ==
+           "You are a helpful assistant.");
+    assert(replay_conversation.at(1).content() == "Hello");
+    assert(replay_conversation.at(2).content() == "Hi there!");
+    assert(replay_conversation.at(3).content() == "Goodbye");
+    assert(replay_conversation.at(4).content() == "See you later!");
 }
 
     return 0;
