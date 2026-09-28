@@ -14,26 +14,49 @@
 #include "model/replay_client.h"
 #include "model/scripted_client.h"
 #include <stdexcept>
-
+#include <memory>
+#include <string>
 #include <cassert>
+
+class TestInput : public InputSource {
+public:
+    TestInput() : count_(0) {}
+
+    std::string read_line() override {
+        ++count_;
+        return "hello";
+    }
+
+    bool is_eof() const override {
+        return false;
+    }
+
+private:
+    int count_;
+};
+
+class TestOutput : public OutputSink {
+public:
+    void write(std::string_view text) override {
+        output_ += text;
+    }
+
+    std::string output_;
+};
 
 int main() {
     // my tests.
 
+    //Empty Conversation Bounds
     //firsttest
         Message m;
     assert(m.role() == Role::System);
     assert(m.content() == "");
-
-
     // second test
-    
     Message m2(Role::User, "Hello");
 
     assert(m2.role() == Role::User);
     assert(m2.content() == "Hello");
-
-
     //third test (empty)
     Conversation c;
 
@@ -43,7 +66,7 @@ int main() {
 
 
 
-    //Fourth test (appending)
+    //appending
     Conversation c2;
 
     c2.append(Message(Role::User, "Hello"));
@@ -52,7 +75,7 @@ int main() {
     assert(c2.at(0).role() == Role::User);
     assert(c2.at(0).content() == "Hello");
 
-        //Fifth test (more than one messages)
+    //more than one messages
     Conversation c3;
 
     c3.append(Message(Role::System, "System message"));
@@ -86,7 +109,7 @@ int main() {
     assert(threw);
 
 
-    //Seventh test (copying the constructor)
+    //Rule of Five (Copy)
     Conversation original;
     original.append(Message(Role::User, "Original message"));
     
@@ -97,20 +120,15 @@ int main() {
     assert(copy.data() != original.data());
     assert(copy.at(0).role() == Role::User);
     assert(copy.at(0).content() == "Original message");
-    
-
-
-
-
-    //eith test (copying the conversation)
+    //copying the conversation
     original.append(Message(Role::Assistant, "New message"));
 
     assert(original.size() == 2);
     assert(copy.size() == 1);
     assert(copy.at(0).content() == "Original message");
 
-
-    //Ninth test (moving the constructor)
+    //Rule of Five (Move)
+    //moving the constructor
     Conversation move_original;
     move_original.append(Message(Role::User, "Move me"));
 
@@ -123,7 +141,7 @@ int main() {
 
 
 
-    //Tenth test (chunk contains sentinel)
+    //(chunk contains sentinel)
     SentinelScanner scanner("<|end_conversation|>");
 
     SentinelScanner::Out result =
@@ -133,7 +151,7 @@ int main() {
     assert(result.sentinel_found == true);
 
 
-    //Eleventh test (two chunks contain sentinel)
+    //test (two chunks contain sentinel)
     SentinelScanner scanner2("<|end_conversation|>");
 
     SentinelScanner::Out part1 =
@@ -145,7 +163,7 @@ int main() {
 
     assert(part1.safe_text + part2.safe_text == "Goodbye");
 
-    // Twelth test flush
+    //test flush
     SentinelScanner scanner3("<|end_conversation|>");
 
     SentinelScanner::Out before_flush =
@@ -185,6 +203,9 @@ int main() {
     assert(move_assigned.at(0).content() == "Move assignment");
     assert(move_assign_original.size() == 0);
 
+
+
+    // Scanner (Clean Text)
     // Clean text
     SentinelScanner clean_scanner("<|end_conversation|>");
 
@@ -200,6 +221,9 @@ int main() {
            "Hello, this is normal text.");
 
 
+
+
+    // Scanner (Split Sentinel)
     //tetsing sentinel at different boundaries
     std::string sentinel = "<|end_conversation|>";
 
@@ -221,6 +245,10 @@ int main() {
     }
 
 
+
+
+
+    // Scanner (False Alarms)
     // Making sure something similar to the sentinel does not stop conversation
     SentinelScanner false_scanner("<|end_conversation|>");
 
@@ -236,6 +264,9 @@ int main() {
            "Hello <|end_world|> goodbye");
 
 
+
+
+    // Scanner (Bounded Memory)
     // scanner bounded memory test
     std::string bounded_sentinel = "<|end_conversation|>";
     SentinelScanner bounded_scanner(bounded_sentinel);
@@ -247,6 +278,10 @@ int main() {
                <= bounded_sentinel.size() - 1);
     }
 
+
+
+
+    //Growth behavior
     // conversation growth behavior test
     Conversation growth;
 
@@ -289,6 +324,29 @@ int main() {
     assert(system_order.at(0).content() == "System");
     assert(system_order.at(1).role() == Role::User);
     assert(system_order.at(2).role() == Role::Assistant);
+
+
+
+    // Harness (Turn Limit)s
+    //Harness Turn Limit Test
+{
+    auto model = std::make_unique<ScriptedModelClient>(
+        "tests/p2/turn_limit.script"
+    );
+
+    HarnessConfig cfg;
+    cfg.max_turns = 3;
+
+    Harness harness(std::move(model), cfg);
+
+    TestInput input;
+    TestOutput output;
+
+    StopReason reason = harness.run(input, output);
+
+    assert(reason.kind == StopReason::Kind::TurnLimit);
+    assert(harness.conversation().size() == 6);
+}
 
     return 0;
     

@@ -1,0 +1,6 @@
+role: assistant
+This is the final response.<|end_conversation|>
+---
+role: assistant
+This response should never happen.
+---
