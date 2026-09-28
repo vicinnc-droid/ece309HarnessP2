@@ -89,12 +89,15 @@ int main() {
     //Seventh test (copying the constructor)
     Conversation original;
     original.append(Message(Role::User, "Original message"));
+    
 
     Conversation copy(original);
 
     assert(copy.size() == 1);
+    assert(copy.data() != original.data());
     assert(copy.at(0).role() == Role::User);
     assert(copy.at(0).content() == "Original message");
+    
 
 
 
@@ -181,6 +184,112 @@ int main() {
     assert(move_assigned.size() == 1);
     assert(move_assigned.at(0).content() == "Move assignment");
     assert(move_assign_original.size() == 0);
+
+    // Clean text
+    SentinelScanner clean_scanner("<|end_conversation|>");
+
+    SentinelScanner::Out clean1 =
+        clean_scanner.feed("Hello, this is normal text.");
+
+    SentinelScanner::Out clean2 =
+        clean_scanner.flush();
+
+    assert(clean1.sentinel_found == false);
+    assert(clean2.sentinel_found == false);
+    assert(clean1.safe_text + clean2.safe_text ==
+           "Hello, this is normal text.");
+
+
+    //tetsing sentinel at different boundaries
+    std::string sentinel = "<|end_conversation|>";
+
+    for (std::size_t i = 1; i < sentinel.size(); ++i) {
+        SentinelScanner split_scanner(sentinel);
+
+        std::string first_chunk = "Hello" + sentinel.substr(0, i);
+        std::string second_chunk = sentinel.substr(i);
+
+        SentinelScanner::Out first =
+            split_scanner.feed(first_chunk);
+
+        SentinelScanner::Out second =
+            split_scanner.feed(second_chunk);
+
+        assert(first.sentinel_found == false);
+        assert(second.sentinel_found == true);
+        assert(first.safe_text + second.safe_text == "Hello");
+    }
+
+
+    // Making sure something similar to the sentinel does not stop conversation
+    SentinelScanner false_scanner("<|end_conversation|>");
+
+    SentinelScanner::Out false1 =
+        false_scanner.feed("Hello <|end_world|> goodbye");
+
+    SentinelScanner::Out false2 =
+        false_scanner.flush();
+
+    assert(false1.sentinel_found == false);
+    assert(false2.sentinel_found == false);
+    assert(false1.safe_text + false2.safe_text ==
+           "Hello <|end_world|> goodbye");
+
+
+    // scanner bounded memory test
+    std::string bounded_sentinel = "<|end_conversation|>";
+    SentinelScanner bounded_scanner(bounded_sentinel);
+
+    for (int i = 0; i < 1000; ++i) {
+        bounded_scanner.feed("<|end_conversatio");
+
+        assert(bounded_scanner.pending_size()
+               <= bounded_sentinel.size() - 1);
+    }
+
+    // conversation growth behavior test
+    Conversation growth;
+
+    assert(growth.size() == 0);
+    assert(growth.capacity() == 0);
+
+    growth.append(Message(Role::User, "1"));
+    assert(growth.size() == 1);
+    assert(growth.capacity() == 1);
+
+    growth.append(Message(Role::User, "2"));
+    assert(growth.size() == 2);
+    assert(growth.capacity() == 2);
+
+    growth.append(Message(Role::User, "3"));
+    assert(growth.size() == 3);
+    assert(growth.capacity() == 4);
+
+    growth.append(Message(Role::User, "4"));
+    assert(growth.size() == 4);
+    assert(growth.capacity() == 4);
+
+    growth.append(Message(Role::User, "5"));
+    assert(growth.size() == 5);
+    assert(growth.capacity() == 8);
+
+    assert(growth.at(0).content() == "1");
+    assert(growth.at(4).content() == "5");
+
+
+    //testing that system message remains first
+    Conversation system_order;
+
+    system_order.append(Message(Role::System, "System"));
+    system_order.append(Message(Role::User, "Hello"));
+    system_order.append(Message(Role::Assistant, "Hi"));
+
+    assert(system_order.size() == 3);
+    assert(system_order.at(0).role() == Role::System);
+    assert(system_order.at(0).content() == "System");
+    assert(system_order.at(1).role() == Role::User);
+    assert(system_order.at(2).role() == Role::Assistant);
+
     return 0;
     
 

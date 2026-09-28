@@ -36,7 +36,6 @@ Conversation& Conversation::operator=(const Conversation& other)
 
         if (other.capacity_ > 0) {
             new_data = new Message[other.capacity_];
-
             for (std::size_t i = 0; i < other.size_; ++i) {
                 new_data[i] = other.data_[i];
             }
@@ -139,4 +138,14 @@ const Message* Conversation::begin() const noexcept
 const Message* Conversation::end() const noexcept
 {
     return data_ + size_;
+}
+
+std::size_t Conversation::capacity() const noexcept
+{
+    return capacity_;
+}
+
+const Message* Conversation::data() const noexcept
+{
+    return data_;
 }

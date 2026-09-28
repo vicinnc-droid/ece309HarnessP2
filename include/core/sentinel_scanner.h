@@ -13,6 +13,7 @@ public:
     };
         Out feed(std::string_view chunk);
     Out flush();
+    std::size_t pending_size() const noexcept;
 private:
     std::string sentinel_;
     std::string pending_;

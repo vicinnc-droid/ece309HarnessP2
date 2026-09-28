@@ -40,6 +40,8 @@ public:
 
     const Message* end() const noexcept;
 
+    std::size_t capacity() const noexcept;
+    const Message* data() const noexcept;
 
     private:
     Message* data_ = nullptr;
